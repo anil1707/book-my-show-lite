@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
@@ -17,5 +18,8 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
 
     // used by the expiry job later
     List<BookingEntity> findByStatusAndExpiresAtBefore(BookingStatus status, LocalDateTime time);
+
+    @EntityGraph(attributePaths = {"show", "show.event", "show.screen", "show.screen.venue"})
+    Optional<BookingEntity> findWithDetailsById(Long id);
 
 }

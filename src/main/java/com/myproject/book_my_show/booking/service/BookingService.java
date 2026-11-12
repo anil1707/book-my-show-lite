@@ -116,29 +116,74 @@ public class BookingService {
 
        bookingSeatRepository.saveAll(bookingSeats);
 
-       return toResponse(booking, seats);
+       return toResponse(booking, bookingSeats);
 
        }
 
+       @Transactional
+       public BookingResponseDto confirmBooking(Long userId, Long bookingId){
+           BookingEntity booking = bookingRepository.findWithDetailsById(bookingId)
+                   .orElseThrow(() -> new ResourceNotFoundException(
+                           "Booking not found with id " + bookingId));
 
-       private BookingResponseDto toResponse(BookingEntity booking, List<ShowSeatEntity> bookingSeat){
-        List<String> seats = bookingSeat.stream()
-                .map(seat -> seat.getSeat().getRowLabel() + seat.getSeat().getSeatNumber())
-                .toList();
+           // not your booking: respond as if it doesn't exist (IDos)
+           if (!booking.getUser().getId().equals(userId)) {
+               throw new ResourceNotFoundException("Booking not found with id " + bookingId);
+           }
 
-            return new BookingResponseDto(
-                    booking.getId(),
-                    booking.getStatus(),
-                    booking.getShow().getEvent().getTitle(),
-                    booking.getShow().getScreen().getVenue().getName(),
-                    booking.getShow().getScreen().getName(),
-                    booking.getShow().getStartTime(),
-                    seats,
-                    booking.getTotalAmount(),
-                    booking.getExpiresAt()
+           if (booking.getStatus() != BookingStatus.PENDING) {
+               throw new SeatUnavailableException(
+                       "Booking is already " + booking.getStatus());
+           }
 
-            );
+           LocalDateTime now = LocalDateTime.now();
+
+           if (booking.getExpiresAt().isBefore(now)) {
+               throw new SeatUnavailableException("Booking has expired. Please select seats again");
+           }
+
+           List<BookingSeatEntity> bookingSeats = bookingSeatRepository.findByBookingId(bookingId);
+
+           // every seat must still be locked (an expired-then-relocked seat must not be confirmed)
+           for(BookingSeatEntity bs : bookingSeats){
+               ShowSeatEntity ss = bs.getShowSeat();
+               if(ss.getStatus() != ShowSeatStatus.LOCKED ||
+                       ss.getLockedUntil() == null ||
+                       !ss.getLockedUntil().equals(booking.getExpiresAt())
+               ){
+                   throw new SeatUnavailableException("Seat lock is no longer valid");
+               }
+           }
+
+           for(BookingSeatEntity bs : bookingSeats){
+               ShowSeatEntity ss = bs.getShowSeat();
+               ss.setStatus(ShowSeatStatus.BOOKED);
+               ss.setLockedUntil(null);
+           }
+
+           booking.setStatus(BookingStatus.CONFIRMED);
+
+           return toResponse(booking, bookingSeats);
        }
+
+   private BookingResponseDto toResponse(BookingEntity booking, List<BookingSeatEntity> bookingSeat){
+    List<String> seats = bookingSeat.stream()
+            .map(seat -> seat.getShowSeat().getSeat().getRowLabel() + seat.getShowSeat().getSeat().getSeatNumber())
+            .toList();
+
+        return new BookingResponseDto(
+                booking.getId(),
+                booking.getStatus(),
+                booking.getShow().getEvent().getTitle(),
+                booking.getShow().getScreen().getVenue().getName(),
+                booking.getShow().getScreen().getName(),
+                booking.getShow().getStartTime(),
+                seats,
+                booking.getTotalAmount(),
+                booking.getExpiresAt()
+
+        );
+   }
 
 
 }

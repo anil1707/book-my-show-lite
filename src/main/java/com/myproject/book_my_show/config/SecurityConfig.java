@@ -24,15 +24,16 @@ public class SecurityConfig {
                 .httpBasic(httpBasic -> httpBasic.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                            .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
-                            .requestMatchers("/api/v1/auth/**").permitAll()
-                            .requestMatchers(HttpMethod.GET,
-                                    "/api/v1/events/**",
-                                    "/api/v1/screns/**",
-                                    "/api/v1/seats/**",
-                                    "/api/v1/shows/**")
-                            .permitAll()
-                            .anyRequest().authenticated()
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/events/**",
+                                "/api/v1/screns/**",
+                                "/api/v1/seats/**",
+                                "/api/v1/shows/**")
+                        .permitAll()
+                        .anyRequest().authenticated()
 
                 )
                 .addFilterBefore(
